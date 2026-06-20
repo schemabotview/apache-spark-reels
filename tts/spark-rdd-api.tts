@@ -1,0 +1,21 @@
+Let's zoom into the oldest, lowest level part of Spark, the RDD API. RDD stands for Resilient Distributed Dataset, and it's the bedrock that DataFrames and SQL are quietly built on top of. You won't always write RDD code directly, but understanding it is what makes the rest of Spark click.
+
+An RDD is just an immutable collection of objects, split into partitions, spread across the machines in your cluster. Resilient means if a machine dies, Spark can rebuild the lost partitions from the recipe it remembers. That's the whole magic.
+
+Everything you do with an RDD falls into three buckets. You create one, you transform it, and finally you run an action. Let's walk them in order.
+
+First, creating an RDD. The simplest way is parallelize, where you take a list that's already in your program and spread it across the cluster. For real data you'll use text file to read one file, or whole text files to read a folder where each file becomes a single record. And numSlices lets you say how many partitions to split the data into, which controls how much parallelism you get.
+
+Once you have an RDD, you transform it. And here's the single most important idea about RDDs. Transformations are lazy. When you call them, nothing actually runs. Spark just writes down the recipe. There are two flavors of transformation, and the difference between them is the difference between a fast job and a slow one.
+
+The first flavor is narrow transformations. In a narrow transformation, each output partition is built from just one input partition. Nothing has to move across the network. Map applies a function to every element. Map partitions does the same but a whole partition at a time, which is faster when there's setup cost. Flat map lets each input produce many outputs. Filter keeps only the elements you want. And repartition and coalesce change how many partitions you have, with coalesce being the cheaper one when you're shrinking.
+
+The second flavor is wide transformations, and these are the expensive ones. In a wide transformation, a single output partition needs data from many input partitions, so Spark has to physically move records across the cluster. That movement is called a shuffle, and it's almost always the slowest thing in your job. Union, distinct, intersection, and subtract combine or dedupe datasets. Sort by orders everything. Join and cogroup match records across two datasets. And cartesian pairs every element with every other element, which you should treat with real caution. Whenever you see these, picture the network lighting up.
+
+Now, a special and very common case. When your RDD holds key value pairs, it becomes a pair RDD, and a whole extra family of operations opens up, the byKey operations. Map to pair turns records into key value form. Reduce by key combines all the values for each key, and it's efficient because it combines locally before shuffling. Group by key gathers all values for a key, but it's wasteful, so prefer reduce by key when you can. Aggregate by key, fold by key, and combine by key give you more control over how values are merged. And count by key and sample by key are quick summaries. Most of these shuffle, because grouping by key means bringing matching keys together.
+
+So far, remember, nothing has actually run. We've only described a chain of transformations. What finally pulls the trigger is an action.
+
+An action is any operation that needs a concrete result, and that's what makes Spark execute the whole recipe at once. Collect pulls all the data back to your driver program, which is dangerous on big datasets. Count, take, and first give you sizes and small samples safely. Reduce, fold, and aggregate boil the whole dataset down to a single value. Save as text file writes the result out to storage. And the misc helpers, broadcast and accumulator, let you share a read only variable to every machine, or safely add up a counter across the cluster.
+
+That's the full shape of the RDD API. Create your dataset, chain together narrow and wide transformations while Spark just takes notes, work with keys through the byKey family, and then fire one action to make it all run. Keep the narrow versus wide distinction in mind above everything else. Avoiding needless shuffles is the heart of writing Spark that's actually fast.
