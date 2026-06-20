@@ -1,8 +1,7 @@
 # apache-spark-reels
 
 Content for the **Apache Spark** topic in [graphl-mobile](../graphl-mobile) — the
-technical reels PWA. The app fetches this content at runtime; it is not bundled
-into the app.
+technical reels PWA. The app fetches this content at runtime; it is not bundled into the app.
 
 ## Structure
 
