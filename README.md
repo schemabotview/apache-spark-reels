@@ -16,4 +16,4 @@ One reel = one `<stem>` shared across the three folders (e.g. `rdd-basics.ts`,
 
 `.wav` files are generated from `.tts` via local ChatterboxTTS (see
 `graphl-mobile/CLAUDE.md`), then committed here so the app can load them.
-Target ~25–40s (~65–105 words) per scene — one concept per scene.
+Target up to ~5 min (~650–780 words) per scene — cover a concept and its parts in depth.

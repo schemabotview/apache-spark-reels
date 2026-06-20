@@ -1,13 +1,27 @@
-How does one line of Spark code become work across a whole cluster? Follow it down.
+How does one line of Spark code become work running across a whole cluster of machines? Let's follow a single query all the way down, from the moment you press run to the moment results come back.
 
-It starts with the driver, which runs your code and hands the query to Catalyst, Spark's optimizer.
+It all starts with the driver. The driver is the process that runs your code, the main program that holds your Spark session. But here's the key idea: the driver doesn't actually crunch your data. Instead, it acts as the coordinator. It takes your query and hands it to Catalyst, Spark's query optimizer, to figure out the smartest way to run it.
 
-Catalyst refines the query through four plans. The unresolved plan is just the parsed query, where table and column names aren't checked yet. The logical plan resolves those names and types against the catalog. The optimized plan applies rules like predicate pushdown and constant folding to do less work. Finally the physical plan picks the real execution strategy, like which join algorithm to use, and is ready to run.
+Catalyst doesn't optimize in one shot. It refines your query through four plans, each one closer to something a machine can execute.
 
-Tungsten takes over, generating tight bytecode and managing memory directly.
+The first is the unresolved logical plan. This is just your query, parsed into a tree of operations. At this point Spark knows the shape of what you asked for, but it hasn't checked anything yet. Table names, column names, data types: all of them are still unverified placeholders.
 
-Now the DAG scheduler splits the job into stages. Stages run one after another, because each shuffle of data must finish before the next can begin.
+Next comes the logical plan. Here Catalyst consults the catalog, Spark's record of every table and column it knows about. It resolves each name, confirms the columns actually exist, and attaches the correct data types. Now the plan is valid and fully understood, but it's still naive. It describes what you want, not the fastest way to get it.
 
-Each stage becomes tasks, one per partition. The task scheduler hands them out, and unlike stages, tasks run in parallel.
+Then comes the optimized logical plan. This is where Catalyst earns its name. It applies a whole library of optimization rules to make the query do less work. Predicate pushdown moves your filters as early as possible, so rows get discarded before they're ever processed. Constant folding pre-computes expressions that don't depend on the data. Projection pruning drops columns you never asked for. The result is a leaner plan that produces the same answer with far less effort.
 
-Finally the cluster manager allocates executors, and those executors run the tasks across many machines at once.
+Finally, the physical plan. A logical plan says what to do; a physical plan says exactly how. Catalyst generates several possible execution strategies and uses cost estimates to choose between them. The biggest decision here is usually how to join: should it broadcast a small table to every node, or shuffle and sort both sides? Once Catalyst picks the cheapest physical plan, the query is finally ready to run.
+
+Now Tungsten takes over. Tungsten is Spark's execution engine, and it's all about raw speed. It generates tight, compiled bytecode for the plan instead of interpreting it step by step, and it manages memory directly, off the Java heap, to avoid garbage collection overhead. This is what lets Spark push close to the limits of the hardware.
+
+With an execution-ready plan in hand, the DAG scheduler steps in. DAG stands for directed acyclic graph: it's the whole job, laid out as a graph of operations. The scheduler's job is to split that graph into stages. A new stage begins wherever data must be shuffled, that is, moved and reorganized across the network. And here geometry tells the story: stages are stacked one on top of another because they run sequentially. Each shuffle has to finish completely before the next stage can begin.
+
+Within a stage, the work is divided into tasks, one task per partition of the data. This is where Spark's parallelism really shows. Unlike stages, tasks within a stage are fully independent, so they run side by side at the same time. If a stage has two hundred partitions, that's two hundred tasks ready to go at once.
+
+The task scheduler takes those tasks and hands them out to wherever there's capacity. It tracks which executors are free, dispatches tasks to them, and handles retries if any task fails along the way.
+
+But who provides those executors? That's the cluster manager. Whether it's YARN, Kubernetes, or Spark's standalone manager, its role is to allocate resources: it grants the driver a set of executor processes spread across the machines in the cluster.
+
+And finally, the executors. These are the workhorses. Each executor runs the tasks it's given, holds data in memory for the stages that need it, and reports results back to the driver. Because there are many executors, each running multiple tasks, the work happens in massive parallel across the whole cluster at once.
+
+So that's the journey: from a single line of code, through the driver, Catalyst, and Tungsten, down into stages and tasks, and out across a fleet of executors. One query, transformed into coordinated work on many machines.
