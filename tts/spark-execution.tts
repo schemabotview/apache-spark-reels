@@ -2,7 +2,7 @@ How does one line of Spark code become work across a whole cluster? Follow it do
 
 It starts with the driver, which runs your code and hands the query to Catalyst, Spark's optimizer.
 
-Catalyst refines it in steps: an unresolved plan becomes a logical plan, then an optimized plan, then a physical plan that's ready to run.
+Catalyst refines the query through four plans. The unresolved plan is just the parsed query, where table and column names aren't checked yet. The logical plan resolves those names and types against the catalog. The optimized plan applies rules like predicate pushdown and constant folding to do less work. Finally the physical plan picks the real execution strategy, like which join algorithm to use, and is ready to run.
 
 Tungsten takes over, generating tight bytecode and managing memory directly.
 
