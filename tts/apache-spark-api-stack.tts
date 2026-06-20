@@ -1,0 +1,35 @@
+Let's map the whole Spark batch API before we go deep on any one part. Almost everything you'll ever write in Spark falls onto a single straight line, and once you can see that line, the giant pile of methods stops feeling random.
+
+It starts with your input sources. Spark can read from comma separated files, from Parquet, from JSON, from a database over JDBC, from Hive tables, from Delta, and more. The data lives somewhere outside Spark, and the first job is always to pull it in.
+
+That pulling in happens through the Read API. You reach it with spark dot read. You tell it the format, you point it at a path or a table, you hand it a few options, and it gives you back a distributed collection of rows spread across the cluster.
+
+Now comes the interesting part. Once your data is inside Spark, you get to choose how you want to work with it, and there are four different lenses on the exact same engine.
+
+The first lens is the RDD API. This is the original, low level Spark. You work directly with partitions and with functions like map and reduce. It's powerful, it's verbose, and most of the time you won't reach for it first, but it's the foundation everything else is built on.
+
+The second lens is the DataFrame API. This is the one you'll use most. Your data has named, typed columns, like a spreadsheet or a table, and you transform it with calls like select, filter, with column, group by, and join. Because Spark understands the structure, it can optimize your work for you.
+
+The third lens is the SQL API. It's the same engine again, but you talk to it in plain SQL. You register your data as a view, and then you run select, where, group by, and join, exactly like any database. DataFrames and SQL are interchangeable. You can switch between them in the middle of a job whenever one feels clearer.
+
+The fourth lens is the pandas API on Spark. If you already know pandas, you can keep writing pandas style code, and Spark runs it across the whole cluster instead of on one machine. It's the gentlest on ramp for anyone coming from regular Python.
+
+Here's the key idea. These four are not steps you go through one after another. They are alternatives. You pick the one that fits the job and the team. Under the hood, DataFrames, SQL, and pandas on Spark all compile down to the same optimized plan, so choosing between them is about how you like to express yourself, not about speed.
+
+After you've transformed your data, you write it back out. That's the Write API, reached with df dot write. You choose a save mode, like overwrite or append, you choose a format, and you choose where it goes.
+
+And where it goes is the output. Back to files, into a Hive table, into a database through JDBC, or into a Delta table. The line is complete. In, read, transform, write, out.
+
+There's one more group that doesn't sit on the line, and that's the cross cutting concerns. These apply no matter which API you chose.
+
+Caching and persistence let you hold a dataset in memory so you don't recompute it every time you use it.
+
+Shuffle is what happens when Spark has to move data across the network to group it or join it, and it's usually the most expensive thing your job does.
+
+Performance tuning is how you control that, by changing how many partitions you have and how the work is spread out.
+
+And broadcast joins are a special trick. When one side of a join is small, Spark ships it to every machine so the join can happen without a shuffle at all.
+
+So that's the whole map. Input sources, the Read API, then your choice of RDD, DataFrame, SQL, or pandas, then the Write API, and out to your destination, with caching, shuffle, tuning, and broadcast joins running across all of it.
+
+Everything else in this series is just zooming into one box on this map. Keep this picture in your head, and the rest will always have a place to land.
