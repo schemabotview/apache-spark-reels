@@ -1,11 +1,13 @@
 How does one line of Spark code become work across a whole cluster? Follow it down.
 
-It starts with the driver. The driver reads your code and builds a plan.
+It starts with the driver, which runs your code and hands the query to Catalyst, Spark's optimizer.
 
-That plan is a directed acyclic graph, a dag. It maps every transformation in dependency order.
+Catalyst refines it in steps: an unresolved plan becomes a logical plan, then an optimized plan, then a physical plan that's ready to run.
 
-Spark slices that map into stages. A stage is work that runs without shuffling data over the network, so here the plan splits in two.
+Tungsten takes over, generating tight bytecode and managing memory directly.
 
-Each stage becomes tasks, with one task per partition of data. And those tasks drop onto the executors, the workers that run them in parallel.
+Now the DAG scheduler splits the job into stages. Stages run one after another, because each shuffle of data must finish before the next can begin.
 
-That's how a single command turns into work flowing across many machines.
+Each stage becomes tasks, one per partition. The task scheduler hands them out, and unlike stages, tasks run in parallel.
+
+Finally the cluster manager allocates executors, and those executors run the tasks across many machines at once.
